@@ -1,0 +1,137 @@
+IndexedDB is an experimental technology with awesome powers.  IndexedDB can be accessed through Firefox >= 16, Chrome >= 23 , and IE 10.  [http://caniuse.com/#search=indexedDB]In this tutorial we will show how to implement the asynchronous IndexedDB API by applying it to a simple E-Party Invitation List Manager.
+
+First some background.  IndexedDB is not a relational database.  Instead of collections of tables the database has collections of object stores, and within these stores data is persisted as key-value pairs.  IndexedDB is not a substitute for DOM Storage but rather a solution for storing large amounts of structured data on the client-side.
+
+In this tutorial we will be building a small database that will help manage an E-Party Invitation List.  A user will be able to create events and keep track of the guests that have been invited to the events.  The following is the basic pattern encouraged for working with IndexedDB [https://developer.mozilla.org/en-US/docs/IndexedDB/Using_IndexedDB#pattern]:
+
+  1]  Open/Create a Database
+  2]  Create an object store
+  3]  Make a request to do some database operations
+  4]  Wait for the operation to complete
+  5]  Do something with the results
+
+Lets get started.
+
+Tested in Firefox >= 16, Chrome >= 24 and IE 10
+If you are using IE you need a server to get IndexedDB up and running since only `http` and `https` schemes are allowed access to IndexedDB
+
+1] Open/Create a Database
+The plan is to create a database called "Invitation List" that will store two types of object stores: Events and Guests.  Events will consists of the event name, host name, location and time of the event.  Guests will contain names, emails and the event to which they were invited to attend.
+
+Before we attempt to access IndexedDB lets create some global variables.
+
+// Globals
+var db,
+  , dbName = "InvitationList"
+  , dbVersion = 1
+  , dbStore = ["Events", "Guests"];
+
+Now lets get the database up and running.
+
+function getDatabase() {
+  var request = window.indexedDB.open(dbName, dbVersion);
+
+  request.onupgradeneeded = function(event) {
+    db = event.target.result;
+
+    // create Event objectStore
+    var EventsObjectStore = db.createObjectStore(dbStore[0], {keyPath: "EID", autoIncrement: true});
+    EventsObjectStore.createIndex("event", "event", {unique: false});
+    EventsObjectStore.createIndex("host", "host", {unique: false});
+    EventsObjectStore.createIndex("location", "location", {unique: false});
+    EventsObjectStore.createIndex("dateTime", "dateTime", {unique: false});
+    // create Guests objectStore
+    var GuestObjectStore = db.createObjectStore(dbStore[1], {keyPath: "GID", autoIncrement: true});
+    GuestObjectStore.createIndex("EID", "EID", {unique: false});
+    GuestObjectStore.createIndex("name", "name", {unique: false});
+    GuestObjectStore.createIndex("email", "email", {unique: false});
+  };
+
+  request.onsuccess = function(event) {
+    console.log("open event", event);
+    db = event.target.result;
+    console.log("successfully opened the database", db);
+    
+    // get the invitation lists
+    getInvitationLists();
+  };
+
+  request.onerror = function(event) {
+    console.error("Y U NO give me access to database", event.target.error);
+  };
+} //END openDatabase
+
+To open a database we must make a 'request' to the 'indedexDB.open()' by passing two arguments, the database name and the version number [https://developer.mozilla.org/en-US/docs/IndexedDB/IDBOpenDBRequest].  Before opening the database the user will be prompted for access to the database.  If the user refuses the `request.onerror` will be triggered.  If this is the first time the user allows access, then `request.onupgradeneeded` will be triggered and the object store/schema will be created.
+
+The `upgradeneeded` is only triggered when the database is first created and when there is a version change.  It passes an event that contains a `IDBDatabase` object, which we need to connect to throughout the application.  With the `db` object assigned we can then access its 'createObjectStore()' method.  The object store represents the schema for the application.  Here we have the option of assigning a unique 'key path' name that will index the data and a boolean 'key generator'.
+
+The result of creating an objectstore is `IDBObjectStore` object.  Besides providing a quick lookup, the 'createIndex' method also allows for data value constraints.  The properties given state the `name` of the index, the `key path` of the index and a boolean property `unique`.  Although the `createIndex()` method is optional its a good idea to use it to outline your schema.
+
+Upon completing the creation of the object stores the `request.onsuccess` handler is triggered.  Now we are ready to add data to the database.
+
+Suppose that we already had events and guests in our database.  After opening the database we want to populate the DOM with our stored data.  In order interact with the database a transaction has to be initialized.  Only through a transaction can we interact with the database and only three modes are allowed to be used for this interaction: 
+
+readonly - only read data from the database
+readwrite - read and/or modify the data
+versionchange - similar to readwrite but with ability to create/delete object stores and indexes
+
+Once we have our transaction and object store referenced for access we provide a key range interval and open a cursor over that interval.  The syntax is as follows:
+
+transaction = db.transaction(dbStore[0], "readonly");
+objStore = transaction.objectStore(dbStore[0]);
+keyRange = IDBKeyRange.lowerBound(0);
+request = objStore.openCursor(keyRange);
+
+request.onsuccess = function(event) {
+  var cursor = event.target.result;
+  if (cursor) {
+  var obj = cursor.value;
+    // add event to DOM
+    addEventToDOM(obj);
+    addEventToSelection(obj.event, obj.dateTime);
+
+    // get guest, if any
+    var guestStore, gIndex, gCursor, gRequest;
+    guestStore = getEvtStore(dbStore[1], "readonly");
+    gIndex = guestStore.index("EID");
+    gRequest = gIndex.openCursor(obj.EID);
+    gRequest.onsuccess = function(event) {
+      var cursor = event.target.result;
+      if (cursor) {
+        // add guest to DOM
+        obj.guest = cursor.value;
+        addGuestsToDOM(obj);
+        cursor.continue();
+      }
+      else {
+        console.log("done getting guests");
+        return;
+      }
+    };
+    gRequest.onerror = function(event) {
+      console.error("ERROR retreiving guest data", event.target.error);
+      return;
+    };
+    cursor.continue();
+  }
+  else {
+    console.log("done getting events");
+    registerEventListeners();
+    return;
+  }
+};
+request.onerror = functoin(event) {
+  console.error("Error reading event data:", event.target.error);
+  return;
+};
+
+
+We open a transaction to the database by providing a 'scope' of the object stores that the transaction can interact with and the type of mode.  If no mode is specified the default is 'readonly'.  A reference to an object store to access is then specified.  The IndexedDB API has a key range that designates an interval to which to query over [https://developer.mozilla.org/en-US/docs/IndexedDB/IDBKeyRange].  We use the 'lowerbound(0)' that states all data values greater than or equal to 0.  To pull the data 'openCursor' on the object store over the key range.  This returns an 'IDBRequest' result object that contains the records satisfied by the key range.
+
+An 'onsuccess' and an 'onerror' handler are always specified when an 'IDBRequest' object is returned.  On a successful request we assign the cursor the results, check that a cursor is returned and proceed to add the cursor values to the DOM.  While we're at it we open a transaction on the guest object store to read the guests that belong to the event just queried.  Here we do the query a little different from the events.
+
+Let's take a step back and look at our schema.  The 'EID' key to the events is a data value for the guest object store, which identifies the guest belonging to an event.  When we query for the guest we want all the guests that belong to the event 'EID'.  Using the method 'index' on the object store opens the named index.  The 'openCursor' is called and populated with those guests that satisfy the 'EID' query.
+
+The cursor is set to iterates over multiple records.  By using 'cursor.continue()' after utilizing the value of the cursor we iterate over all the records the cursor references. Again, an 'onsuccess' and 'onerror' handler are specified.
+
+After populating the DOM with the stored data in IndexedDB we are ready for the user to interact with the application.
