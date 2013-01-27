@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>
+            eParty Invitation Tutorial
+        </title>
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+        <link href="css/amelia.min.css" rel="stylesheet">
+        <style>
+.span4, .span6 {
+        float: left;
+        width: 100%;
+        }
+        .startEvent, .addGuests {
+        float: left;
+        width: 100%:
+        }
+        .form-horizontal .control-group {
+        margin-bottom: 15px;
+        }
+        .form-horizontal .control-label {
+        float: left;
+        width: 100px;
+        padding-top: 5px;
+        padding-left: 20px;
+        text-align: right;
+        }
+        .form-horizontal .controls {
+        margin-left: 140px;
+        }
+        textarea {
+        width: 200px;
+        }
+        .btn {
+        float: right;
+        border-radius: 10px;
+        padding: 2px 5px;
+        }
+
+        /* Invite Guests --> Guest*/
+        .addGuests {
+        clear: right;
+        }
+        form.guests h3 {
+        padding-left: 40px;
+        }
+
+        /* MAIN INVITE LIST */
+        .mainInvList {
+        overflow: auto;
+        }
+        .event {
+        margin-bottom: 5em;
+        float: left;
+        width: 100%
+        }
+
+        .evtRemove {
+        position: relative;
+        padding: .4em;
+        border-radius: 10px;
+        top: 15px;
+        right: 10%;
+        //- visibility: hidden;
+        }
+
+        /*Invite header*/
+        .eHost h3, .eHost h4{
+        display: inline;
+        }
+        .eHost h3 {
+        text-shadow: 2px 2px black;
+        }
+        .eInfo h4 {
+        margin-bottom: 2px;
+        }
+        .eInfo p {
+        margin-left: 15px;
+        }
+
+        /*Invite Guest List*/
+        .guestsNameEmail {
+        margin-bottom: 10px;
+        }
+        .guestsNameEmail h4 {
+        display: inline;
+        margin: 0 150px 0 30px;
+        }
+        .eList {
+        width: 80%;
+        }
+        .guestList > li {
+        float: left;
+        width: 100%; 
+        padding-left: 1em;
+        padding-bottom: .5em;
+        }
+
+        .name, .email {
+        float: left;
+        width: 42.5%;
+        }
+        .btn.remove {
+        padding: .2em;
+        border-radius: 0;
+        }
+        </style>
+    </head>
+    <body>
+        <nav class="navbar">
+            <div class="navbar-inner">
+                <a href="#" class="brand">E-Party Invite!</a>
+            </div>
+        </nav>
+        <section class="main container-fluid">
+            <div class="row-fluid">
+                <div class="span12">
+                    <div class="span4 offset1">
+                        <section class="startEvent">
+                            <h2>
+                                Create Event
+                            </h2>
+                            <form class="createEvent form-horizontal">
+                                <div class="control-group">
+                                    <div for="eName" class="control-label">
+                                        Event Name
+                                    </div>
+                                    <div class="controls">
+                                        <input id="eName" type="text" name="eName" placeholder="Party Time" required="">
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <div for="hostName" class="control-label">
+                                        Host Name
+                                    </div>
+                                    <div class="controls">
+                                        <input id="hostName" type="text" name="hostName" placeholder="Bethany Almond" required="">
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <div for="where" class="control-label">
+                                        Hosted at
+                                    </div>
+                                    <div class="controls">
+                                        <textarea id="where" name="where" placeholder="Address" required="">
+</textarea>
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <div for="date" class="control-label">
+                                        Date
+                                    </div>
+                                    <div class="controls">
+                                        <input id="when" type="text" name="when" placeholder="April 16, 2013 @ 8:30 PM" required="">
+                                    </div>
+                                </div><button id="create" type="submit" class="btn btn-primary">Create!</button><button id="reset" type="reset" class="btn btn-inverse">Reset!</button>
+                            </form>
+                        </section>
+                        <section class="addGuests">
+                            <h2>
+                                Invite Guests
+                            </h2>
+                            <form class="guests form-horizontal">
+                                <div class="control-group">
+                                    <div class="controls">
+                                        <select id="fromEvents" class="fromEvents">
+                                            <option selected="selected" name="gEvent" value="null">
+                                                Select Event
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <div class="controls">
+                                        <select id="fromDateTimes" class="fromDateTimes">
+                                            <option selected="selected" name="gDateTime" value="null">
+                                                Select Date/Time
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <h3>
+                                    Guest
+                                </h3>
+                                <div class="control-group">
+                                    <div for="gName" class="control-label">
+                                        Name
+                                    </div>
+                                    <div class="controls">
+                                        <input id="gName" type="text" name="gName" placeholder="First and Last Name" required="">
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <div for="gEmail" class="control-label">
+                                        Email
+                                    </div>
+                                    <div class="controls">
+                                        <input id="gEmail" type="text" name="gEmail" placeholder="user@example.com" required="">
+                                    </div>
+                                </div><button id="add" type="submit" class="btn btn-primary">Add!</button><button id="reset" type="reset" class="btn btn-inverse">Reset!</button>
+                            </form>
+                        </section>
+                    </div>
+                    <div class="span6 offset1">
+                        <section id="mainInvList" class="mainInvList"></section>
+                    </div>
+                </div>
+            </div>
+        </section><script src="http://code.jquery.com/jquery-latest.js">
+</script><script src="js/bootstrap.min.js">
+</script><script src="js/eParty.js">
+</script>
+    </body>
+</html>
