@@ -1,739 +1,431 @@
-(function() {
-  "use strict";
+"use strict";
 
-  if (!window.indexedDB) {
-    window.alert("Upgrade your browser if you want this to work");
-  }
+// Example data
+var events  = {
+  eName: "Party Time",
+  eHost: "Sylvester Cat",
+  eLoc: "The Cage near the Window",
+  eDateTime: "very SOON!"
+};
 
-  // -----------------------------------------------------------------------
-  // DOM and DB functions
-  // -----------------------------------------------------------------------
-  // add Event Elements to DOM
-  function addEventToDOM(evtInfo) {
-    console.log("adding Event to DOM", evtInfo);
-    var mainInvList, mainEvt, eInfo, eName, eHost, eLOC, eDate, eNameH1, eHostH4, eHostH3, eLOCH4, eLOCp, eDateH4, eDatep, section, h3, hgroup, hgroupH41, hgroupH42, ol, remove;
+var guests = {
+  EID: 1,
+  name: "Birdie",
+  email: "avoid@theCat.com"
+};
 
-    // create DOM elements
-    mainInvList = document.getElementById("mainInvList");
+if (!window.indexedDB) {
+  window.alert("Upgrade your browser if you want this to work");
+}
 
-    mainEvt = document.createElement("div");
-    eInfo = document.createElement("hgroup");
-    eName = document.createElement("div");
-    eNameH1 = document.createElement("h1");
-    eHost = document.createElement("div");
-    eHostH4 = document.createElement("h4");
-    eHostH3 = document.createElement("h3");
-    eLOC = document.createElement("div");
-    eLOCH4 = document.createElement("h4");
-    eLOCp = document.createElement("p");
-    eDate = document.createElement("div");
-    eDateH4 = document.createElement("h4");
-    eDatep = document.createElement("p");
-    remove = document.createElement("button");
+// initialize global variables
+var db
+  , dbName = "InvitationList"
+  , dbVersion = 1
+  , dbStore = ["Events", "Guests"];
 
-   // setAttributes to elements
-    // mainEvent
-    mainEvt.setAttribute("id", evtInfo.event + "_" + evtInfo.dateTime); // .replace(/\s/g, "").toLowerCase() -- .toString().replace(/\s/g, "")
-    mainEvt.setAttribute("class", "event");
-     // hgroup
-    eInfo.setAttribute("class", "eInfo");
-     // eName
-    eName.setAttribute("id", evtInfo.event.replace(/\s/g, "").toLowerCase());
-    eName.setAttribute("class", "eName");
-     // eHost
-    eHost.setAttribute("id", evtInfo.host.replace(/\s/g, "").toLowerCase());
-    eHost.setAttribute("class", "eHost");
-     // eLOC
-    eLOC.setAttribute("id", evtInfo.location.replace(/\s/g, "").toLowerCase());
-    eLOC.setAttribute("class", "eLOC");
-     // eDate
-    eDate.setAttribute("id", evtInfo.dateTime.toString().replace(/\s/g, ""));
-    eDate.setAttribute("class", "eDate");
-     // close button
-     remove.setAttribute("id", evtInfo.event + "_" + evtInfo.dateTime + "_remove");
-     remove.setAttribute("class", "btn btn-mini btn-inverse evtRemove");
-     remove.setAttribute("type", "submit");
+openDatabase();
 
-    // bind values to Elements
-    eNameH1.innerHTML = evtInfo.event;
-    eHostH4.innerHTML = "Hosted by ";
-    eHostH3.innerHTML = evtInfo.host;
-    eLOCH4.innerHTML = "Location";
-    eLOCp.innerHTML = evtInfo.location;
-    eDateH4.innerHTML = "Date";
-    eDatep.innerHTML = evtInfo.dateTime;
-    remove.innerHTML = "remove event";
+// OPEN database
+function openDatabase() {
+  var request = window.indexedDB.open(dbName, dbVersion);
 
-    // append to the Elements
-    eName.appendChild(eNameH1);
-    eInfo.appendChild(remove);
-    eInfo.appendChild(eName);
+  request.onupgradeneeded = function(event) {
+    console.log("database upgrade needed", event);
+    db = event.target.result;
 
-    eHost.appendChild(eHostH4);
-    eHost.appendChild(eHostH3);
-    eInfo.appendChild(eHost);
+    // create Events
+    var EventsObjectStore = db.createObjectStore(dbStore[0], {keyPath: "EID", autoIncrement: true});
+    EventsObjectStore.createIndex("event", "event", {unique: false});
+    EventsObjectStore.createIndex("host", "host", {unique: false});
+    EventsObjectStore.createIndex("location", "location", {unique: false});
+    EventsObjectStore.createIndex("dateTime", "dateTime", {unique: false});
+    // create Guests
+    var GuestObjectStore = db.createObjectStore(dbStore[1], {keyPath: "GID", autoIncrement: true});
+    GuestObjectStore.createIndex("EID", "EID", {unique: false});
+    GuestObjectStore.createIndex("name", "name", {unique: false});
+    GuestObjectStore.createIndex("email", "email", {unique: false});
+  };
 
-    eLOC.appendChild(eLOCH4);
-    eLOC.appendChild(eLOCp);
-    eInfo.appendChild(eLOC);
+  request.onsuccess = function(event) {
+    console.log("open event", event.target);
+    db = event.target.result;
+    console.log("successfully opened the database", db);
 
-    eDate.appendChild(eDateH4);
-    eDate.appendChild(eDatep);
-    eInfo.appendChild(eDate);
-     // append hgroup to mainInvt
-    mainEvt.appendChild(eInfo);
+    // get the invitation lists
+    getInvitationLists();
+  };
 
-    // create the guest block
-    section = document.createElement("section");
-    h3 = document.createElement("h3");
-    hgroup = document.createElement("hgroup");
-    hgroupH41 = document.createElement("h4");
-    hgroupH42 = document.createElement("h4");
-    ol = document.createElement("ol");
+    request.onerror = function(event) {
+    console.error("Y U NO give me access to database", event.target.error);
+  };
 
-    // setAttributes to Elements
-    // section.setAttribute("id", evtInfo.event.replace(/\s/g, "").toLowerCase() + evtInfo.dateTime.toString().replace(/\s/g, "") + "_glist");
-    section.setAttribute("class", "eList");
-    hgroup.setAttribute("class", "guestsNameEmail");
-    ol.setAttribute("id", evtInfo.event + "_" + evtInfo.dateTime + "_gList"); //.toString().replace(/\s/g, "") -- .replace(/\s/g, "").toLowerCase() 
-    ol.setAttribute("class", "guestList");
+} //END openDatabase
 
-    // bind values to Elements
-    h3.innerHTML = "Invited Guests";
-    hgroupH41.innerHTML = "Name";
-    hgroupH42.innerHTML = "Email";
+// register EventListeners
+function registerEventListeners() {
+  console.log("adding listeners");
+  var create, add, eHover;
 
-    // append to Elements
-    section.appendChild(h3);
-    hgroup.appendChild(hgroupH41);
-    hgroup.appendChild(hgroupH42);
-    section.appendChild(hgroup);
-    section.appendChild(ol);
-     // append section to mainEvt
-    mainEvt.appendChild(section);
+  create = document.getElementById("create");
+  add = document.getElementById("add");
+  // eHover = document.getElementsByClassName("eInfo");
 
-    // append mainEvt mainInvtList
-    mainInvList.appendChild(mainEvt);
+  create.addEventListener("click", processEvent, false);
+  add.addEventListener("click", processGuest, false);
+  // eHover.addEventListener("hover", showRemove, false);
 
-    // add Listener to event
-    var evtRemove = document.getElementById(evtInfo.event + "_" + evtInfo.dateTime + "_remove");
-    evtRemove.addEventListener("click", removeEventFromDB, false);
+  console.log("done registering EventListeners");
+  return;
+} //end register event listener
 
-    console.log("finished adding Event to DOM");
-  } // end addEventToDOM
+// GET invitation list
+function getInvitationLists() {
+  var objStore, keyRange, cursor, request, transaction;
 
-  // add Guest Elements to DOM
-  function addGuestsToDOM(eGuest) {
-    console.log("adding guest to DOM");
-    var li, spanName, spanEmail, button, ol, uninvite;
+  // get data from event store
+  transaction = db.transaction(dbStore[0], "readonly");
+  objStore = transaction.objectStore(dbStore[0]);
+  keyRange = IDBKeyRange.lowerBound(0);
+  request = objStore.openCursor(keyRange);
 
-    ol = document.getElementById(eGuest.event + "_" + eGuest.dateTime + "_gList"); //.replace(/\s/g, "").toLowerCase() -- .toString().replace(/\s/g, "") 
+  request.onsuccess = function(event) {
+    console.log("Retreiving event/guest lists");
+    cursor = event.target.result;
+    if (cursor) {
+      var obj = cursor.value;
+      // add event to DOM
+      addEventToDOM(obj);
+      addEventToSelection(obj.event, obj.dateTime);
 
-    var guest = eGuest.guest;
-    console.log("guest", guest);
-
-    li = document.createElement("li");
-    spanName = document.createElement("span");
-    spanEmail = document.createElement("span");
-    button = document.createElement("button");
-
-    spanName.setAttribute("class", "list name");
-    spanEmail.setAttribute("class", "list email");
-    button.setAttribute("id", eGuest.event + "_"+ eGuest.dateTime + "_" + guest.email);
-    button.setAttribute("class", "btn btn-danger btn-small uninvite");
-    button.setAttribute("type", "submit");
-
-    spanName.innerHTML = guest.name;
-    spanEmail.innerHTML = guest.email;
-    button.innerHTML = "unInvite";
-
-    li.appendChild(spanName);
-    li.appendChild(spanEmail);
-    li.appendChild(button);
-    ol.appendChild(li);
-
-    // register event listener
-    uninvite = document.getElementById(eGuest.event + "_"+ eGuest.dateTime + "_" + guest.email);
-    uninvite.addEventListener("click", uninviteGuest, false);
-
-    console.log("finished adding Guest to DOM");
-  } // end addGuestToDOM
-
-  // remove Guest from DB
-  function removeGuestFromDB(guest) {
-    console.log("removing guest from DB");
-    if (typeof guest === "number") {
-      console.log("removing all guests");
-
-      var gStore, reqInx, request;
-      gStore = getEvtStore(dbStore[1], "readwrite");
-      reqInx = gStore.index("EID");
-      request = reqInx.openCursor(guest);
-      request.onsuccess = function(event) {
+      // get guest, if any
+      var guestStore, gIndex, gCursor, gRequest;
+      guestStore = getEvtStore(dbStore[1], "readonly");
+      gIndex = guestStore.index("EID");
+      gRequest = gIndex.openCursor(obj.EID);
+      gRequest.onsuccess = function(event) {
         var cursor = event.target.result;
         if (cursor) {
-          request = gStore.delete(cursor.value.GID);
-          request.onsuccess = function(event) {
-            console.log("evt:", event);
-            console.log("evt.target:", event.target);
-            console.log("evt.target.result:", event.target.result);
-            console.log("delete successful");
-            return;
-          };
-          request.onerror = function(event) {
-            console.error("Error deleting guest from DB", event.target.error);
-            return;
-          };
+          // add guest to DOM
+          obj.guest = cursor.value;
+          addGuestsToDOM(obj);
           cursor.continue();
         }
         else {
-          console.log("done removing guests");
+          console.log("done getting guests");
           return;
         }
       };
+      gRequest.onerror = function(event) {
+        console.error("ERROR retreiving guest data", event.target.error);
+        return;
+      };
+      cursor.continue();
+    }
+    else {
+      console.log("done getting events");
+      registerEventListeners();
+      return;
+    }
+  };
+  request.onerror = function(event) {
+    console.error("Error reading event data:", event.target.error);
+    return;
+  };
+} //END getList
+
+/**
+ * Event Listeners:
+ * @eventCreate
+ * @addGuest
+ * @uninviteGuest
+ * @selectEvent
+ */
+
+function processEvent(eForm) {
+    console.log("Processing Event");
+    eForm.preventDefault();
+    var eObj, evtStore, reqInx, request;
+
+    eObj = {
+      event: eForm.target.form.eName.value,
+      host: eForm.target.form.hostName.value,
+      location: eForm.target.form.where.value,
+      dateTime: eForm.target.form.when.value
+    };
+    if (!(eObj.event && eObj.host && eObj.location && eObj.dateTime)){
+      console.log("missing form information");
+      alert("Please fill out the whole form");
+      return;
+    }
+
+    getEvent(eObj, function(success) {
+      if (success) {
+        console.log("Event/dateTime already in database");
+        alert("An event with the same name and time already exists.  Please add a new event and/or a new time.");
+        return;
+      }
+      else {
+        // Add event to DB
+        addEventToDB(eObj, function(success) {
+          if (success) {
+            // Add event to DOM
+            addEventToDOM(eObj);
+            // Add the Event to selection option
+            addEventToSelection(eObj.event, eObj.dateTime);
+            return;
+          }
+        });
+      }
+    });
+} //end processEvent
+
+function processGuest(gForm) {
+  console.log("Processing guests");
+  gForm.preventDefault();
+  var selEvt, selDT, eObj, form = gForm.target.form
+
+  // get Selection
+  selEvt = document.getElementById("fromEvents").options[fromEvents.selectedIndex].value;
+  selDT = document.getElementById("fromDateTimes").options[fromDateTimes.selectedIndex].value;
+
+  eObj = {
+    event: selEvt,
+    dateTime: selDT
+  };
+
+  // check that event and date coinside
+  getEvent(eObj, function(success) {
+    if (success) {
+      var eGuest = {
+        event: success.event,
+        dateTime: success.dateTime,
+        guest: {
+          EID: success.EID,
+          name: form.gName.value,
+          email: form.gEmail.value
+        }
+      };
+      getGuest(eGuest, function(success) {
+        if (!success) {
+          console.log("Adding Guest to Event");
+          addGuestToDB(eGuest);
+          return;
+        }
+        return;
+      });
+    }
+    else {
+      console.log("Event at that time does not exist");
+      alert("There is no event at that time.  Please create a new event or change your selection.");
+      return;
+    }
+  });
+} //end processGuest
+
+// get event
+function getEvent(evt, callback) {
+  console.log("Event", evt);
+  var evtStore, reqInx, request;
+
+  evtStore = getEvtStore(dbStore[0], "readonly");
+  reqInx = evtStore.index("event");
+  request = reqInx.count(evt.event);
+  request.onsuccess = function(event) {
+    var count = event.target.result;
+    console.log("count", count);
+    if (count) {
+      request = reqInx.openCursor(evt.event);
+      request.onsuccess = function(event) {
+        var cursor = event.target.result;
+        if (cursor) {
+          if(cursor.value.event === evt.event && cursor.value.dateTime === evt.dateTime) {
+            console.log("Event in DB");
+            return callback(cursor.value);
+          }
+          cursor.continue();
+        }
+        else {
+          return callback(false);
+        }
+      };
       request.onerror = function(event) {
-        console.error("Error retreiving guest for remove from DB", event.target.error);
+        console.error("ERROR retrieving Event openCursor", event.target.error);
         return;
       };
     }
     else {
-      var evtStore, reqInx, request;
+      console.log("No Event records");
+      return callback(false);
+    }
+  };
+  request.onerror = function(event) {
+    console.error("ERROR retrieving Event count", event.target.error);
+    return;
+  };
+} //end getEvent
 
-      evtStore = getEvtStore(dbStore[1], "readwrite");
-      reqInx = evtStore.index("EID");
-      request = reqInx.openCursor(guest.EID);
+// get guest
+function getGuest(eGuest, callback) {
+  console.log("getting guest", eGuest.guest);
+  var guest = eGuest.guest;
+
+  // first check if email is in the database
+  var evtStore, reqInx, request;
+  evtStore = getEvtStore(dbStore[1], "readonly");
+  reqInx = evtStore.index("email");
+  request = reqInx.count(guest.email);
+  request.onsuccess = function(event) {
+    var count = event.target.result;
+    if (count) {
+      request = reqInx.openCursor(guest.email);
       request.onsuccess = function(event) {
         var cursor = event.target.result;
         if (cursor) {
-          if(cursor.value.email === guest.email) {
-            console.log("guest identified");
-
-            // delete guest here
-            request = evtStore.delete(cursor.value.GID);
-            request.onsuccess = function(event) {
-              console.log("evt:", event);
-              console.log("evt.target:", event.target);
-              console.log("evt.target.result:", event.target.result);
-              console.log("delete successful");
-              removeGuestFromDOM(guest);
-              return;
-            };
-            request.onerror = function(event) {
-              console.error("ERROR removing guest from DB:", event.target.error);
-              return;
-            };
+          if (cursor.value.name !== guest.name) {
+            console.log("username does not match email");
+            alert("Use a unique Name and Email for each guest");
+            return callback(cursor.value);
+          }
+          if (cursor.value.EID === guest.EID){
+            console.log("Guest already in the invite list.");
+            alert("Guest already in the invite list.");
+            return callback(cursor.value);
           }
           cursor.continue();
         }
         else {
-          console.log("done deleting guest"); 
-          return;
+          return callback(false);
         }
       };
       request.onerror = function(event) {
-        console.log("Error getting email on removeGuest", event.target.error);
+        console.error("ERROR retrieving Guest openCursor", event.target.error);
         return;
       };
     }
-  } //end removeGuestFromDB
-
-  // remove Guest Elements from guest
-  function removeGuestFromDOM(guest) {
-    console.log("removing guest from DOM");
-    // from parentNode remove list child
-    guest.li.parentNode.removeChild(guest.li);
-    console.log("finished removing guest from DOM");
-  } // end removeGuestFromDOM
-
-  // remove event along with possible guests from the DataBase
-  function removeEventFromDB(event) {
-    event.preventDefault();
-    console.log("begin removing event");
-    var evt, evtStore, reqInx, request, eName, eDT;
-
-    evt = event.target.id.split("_");
-    console.log("event to remove:", evt);
-
-    evtStore = getEvtStore(dbStore[0], "readwrite");
-    reqInx = evtStore.index("event");
-    request = reqInx.openCursor(evt[0]);
-    request.onsuccess = function(event) {
-      var cursor = event.target.result;
-      if (cursor) {
-        if (cursor.value.dateTime === evt[1]) {
-          var EID;
-          EID = cursor.value.EID;
-          eName = cursor.value.event;
-          eDT = cursor.value.dateTime;
-          request = evtStore.delete(EID);
-          request.onsuccess = function(event) {
-            console.log("evt:", event);
-            console.log("evt.target:", event.target);
-            console.log("evt.target.result:", event.target.result);
-            console.log("delete successful");
-            removeGuestFromDB(EID);
-            return;
-          };
-          request.onerror = function(event) {
-            console.error("ERROR deleting event from DB: ", event.target.error);
-            return;
-          };
-        }
-        cursor.continue();
-      }
-      else {
-        console.log("Done deleting event");
-        removeEventFromDOM(eName, eDT);
-        return;
-      }
-    };
-    request.onerror = function(event) {
-      console.error("ERROR getting event to remove: ", event.target.error);
-      return;
-    };
+    else {
+      console.log("No Guest records");
+      return callback(false);
+    }
+  };
+  request.onerror = function(event) {
+    console.error("ERROR retrieving Guest count", event.target.error);
     return;
+  };
+} //end getGuest
+
+// add event to DB
+function addEventToDB(eObj, callback) {
+  console.log("adding event to db");
+  var transaction, evtStore, request;
+
+  transaction = db.transaction(dbStore[0], "readwrite");
+  evtStore = transaction.objectStore(dbStore[0]);
+  request = evtStore.add(eObj);
+  request.onsuccess = function(event) {
+    var key = event.target.result;
+    console.log("event added to db: key", key);
+    return callback(key);
+  };
+  request.onerror = function(event) {
+    console.error("ERROR adding Event to db", event.target.error);
+    return;
+  };
+} //end addEventToDB
+
+// add guest to DB
+function addGuestToDB(eGuest) {
+  console.log("adding guest to db", eGuest.guest);
+  var evtStore, request;
+
+  evtStore = getEvtStore(dbStore[1], "readwrite");
+  request = evtStore.add(eGuest.guest);
+  request.onsuccess = function(event) {
+    var key = event.target.result;
+    console.log("success on adding guest", event.target.result);
+    addGuestsToDOM(eGuest);
+    return;
+  };
+  request.onerror = function(event) {
+    console.error("ERROR adding Guest to db:", event.target.error);
+  };
+} //end addGuest
+
+// add event to selection options
+function addEventToSelection(eName, dateTime) {
+  console.log("adding to selection");
+  var fromEvents, fromDateTimes, optionE, optionDT;
+
+  fromEvents = document.getElementById("fromEvents");
+  fromDateTimes = document.getElementById("fromDateTimes");
+
+  optionE = document.createElement("option");
+  optionDT = document.createElement("option");
+
+  optionE.setAttribute("value", eName);
+  optionE.innerHTML = eName;
+  optionDT.setAttribute("value", dateTime);
+  optionDT.innerHTML = dateTime;
+
+  fromEvents.appendChild(optionE);
+  fromDateTimes.appendChild(optionDT);
+  return;
+} //end addEventToSelection
+
+// remove event from selection options
+function removeEventFromSelection(eName, dateTime) {
+  console.log("Removing Event from selection options");
+  var fromEvents, fromDateTimes;
+
+  // get selection options
+  fromEvents = document.getElementById("fromEvents");
+  fromDateTimes = document.getElementById("fromDateTimes");
+
+  for (var i = 0, len = fromEvents.length; i < len; i++) {
+    if (typeof fromEvents.options[i] !== "undefined" && fromEvents.options[i].value === eName) {
+      fromEvents.remove(i);
+    }
+    if (typeof fromDateTimes.options[i] !== "undefined" && fromDateTimes.options[i].value === dateTime) {
+      fromDateTimes.remove(i);
+    }
   }
+} //end removeEventFromSelection
 
-  // remove event from the DOM
-  function removeEventFromDOM (eName, eDateTime) {
-    console.log("Removing event from DOM");
-    var evt = document.getElementById(eName + "_" + eDateTime);
-    evt.parentNode.removeChild(evt);
-    return;
-  } //end removeEventFromDOM
-// -----------------------------------------------------------------------
-// -----------------------------------------------------------------------
+// uninvite guest
+function uninviteGuest(domGuest) {
+  console.log("uninviting guest");
 
-  // initialize global variables
-  var db
-    , dbName = "InvitationList"
-    , dbVersion = 1
-    , dbStore = ["Events", "Guests"];
-
-  var exEvents, exGuests;
-  exEvents = [
-    {
-      event: "DownTown Get Together",
-      host: "Bethany Almonds",
-      location: "Luckys Bar and Grill",
-      dateTime: new Date().getTime()
-    },
-    {
-      event: "Boo's Birthday Get Together",
-      host: "Helena Montes",
-      location: "457 S. Brown Wood st.",
-      dateTime: new Date().getTime()
-    }
-  ];
-
-  exGuests = [
-        {
-          name: "Rodrigo Montoya",
-          email: "hotRod@garage.com"
-        },
-        {
-          name: "Mao Jenkins",
-          email: "catFun@treats.com"
-        },
-        {
-          name: "Jerry Kid",
-          email: "lossy@moJo.com"
-        },
-        {
-          name: "Hessgar Ium",
-          email: "unaBosh@tuna.com"
-        }
-  ];
-
-  openDatabase();
-
-  // OPEN database
-  function openDatabase() {
-    var request = window.indexedDB.open(dbName, dbVersion);
-
-    request.onerror = function(event) {
-      console.error("Y U NO give me access to database", event.target.error);
-    };
-    request.onsuccess = function(event) {
-      console.log("open event", event.target);
-      db = event.target.result;
-      console.log("successfully opened the database", db);
-      
-      // get the invitation lists
-      getInvitationLists();
-
-    };
-    request.onupgradeneeded = function(event) {
-      console.log("database upgrade needed", event);
-      db = event.target.result;
-
-      // create Events
-      var EventsObjectStore = db.createObjectStore(dbStore[0], {keyPath: "EID", autoIncrement: true});
-      EventsObjectStore.createIndex("event", "event", {unique: false});
-      EventsObjectStore.createIndex("host", "host", {unique: false});
-      EventsObjectStore.createIndex("location", "location", {unique: false});
-      EventsObjectStore.createIndex("dateTime", "dateTime", {unique: false});
-      // create Guests
-      var GuestObjectStore = db.createObjectStore(dbStore[1], {keyPath: "GID", autoIncrement: true});
-      GuestObjectStore.createIndex("EID", "EID", {unique: false});
-      GuestObjectStore.createIndex("name", "name", {unique: false});
-      GuestObjectStore.createIndex("email", "email", {unique: false});
-
-      // console.log("adding examples");
-      // var request;
-      // for (var i in exampleData) {
-      //   try {
-      //     request = EventsObjectStore.add(exampleData[i]);
-      //   } catch(e) {
-      //     if (e.name == 'DataCloneError')
-      //       console.error("insertion error");
-      //     throw e;
-      //   }
-      //   console.log("data added");
-      // }
-    };
-  } //END openDatabase
-
-  // register EventListeners
-  function registerEventListeners() {
-    console.log("adding listeners");
-    var create, add, eHover;
-
-    create = document.getElementById("create");
-    add = document.getElementById("add");
-    // eHover = document.getElementsByClassName("eInfo");
-
-    create.addEventListener("click", processEvent, false);
-    add.addEventListener("click", processGuest, false);
-    // eHover.addEventListener("hover", showRemove, false);
-
-    console.log("done registering EventListeners");
-    return;
-  } //end register event listener
-
-  // GET invitation list
-  function getInvitationLists() {
-    var objStore, keyRange, cursor, request, transaction;
-
-    // get data from event store
-    transaction = db.transaction(dbStore[0], "readonly");
-    objStore = transaction.objectStore(dbStore[0]);
-    keyRange = IDBKeyRange.lowerBound(0);
-    request = objStore.openCursor(keyRange);
-
-    request.onsuccess = function(event) {
-      console.log("Retreiving event/guest lists");
-      cursor = event.target.result;
-      if (cursor) {
-        var obj = cursor.value;
-        // add event to DOM
-        addEventToDOM(obj);
-        addEventToSelection(obj.event, obj.dateTime);
-
-        // get guest, if any
-        var guestStore, gIndex, gCursor, gRequest;
-        guestStore = getEvtStore(dbStore[1], "readonly");
-        gIndex = guestStore.index("EID");
-        gRequest = gIndex.openCursor(obj.EID);
-        gRequest.onsuccess = function(event) {
-          var cursor = event.target.result;
-          if (cursor) {
-            // add guest to DOM
-            obj.guest = cursor.value;
-            addGuestsToDOM(obj);
-            cursor.continue();
-          }
-          else {
-            console.log("done getting guests");
-            return;
-          }
-        };
-        gRequest.onerror = function(event) {
-          console.error("ERROR retreiving guest data", event.target.error);
-          return;
-        };
-        cursor.continue();
-      }
-      else {
-        console.log("done getting events");
-        registerEventListeners();
-        return;
-      }
-    };
-    request.onerror = function(event) {
-      console.error("Error reading event data:", event.target.error);
-      return;
-    };
-
-    transaction.oncomplete = function(event) {
-      console.log("transaction complete");
-      return;
-    };
-  } //END getList
-
-  /**
-   * Event Listeners:
-   * @eventCreate
-   * @addGuest
-   * @uninviteGuest
-   * @selectEvent
-   */
-
-  function processEvent(event) {
-      console.log("creating event");
-      event.preventDefault();
-      var eventObj, evtStore, reqInx, request;
-
-      eventObj = {
-        event: event.target.form.eName.value,
-        host: event.target.form.hostName.value,
-        location: event.target.form.where.value,
-        dateTime: event.target.form.when.value
-      };
-      if (!(eventObj.event && eventObj.host && eventObj.location && eventObj.dateTime)){
-        console.log("missing form information");
-        alert("Please fill out the whole form");
-        return;
-      }
-
-      console.log("event to add", eventObj);
-      // First check if event+dt are not already in db
-      evtStore = getEvtStore(dbStore[0], "readonly");
-      reqInx = evtStore.index("event");
-      request = reqInx.openCursor(eventObj.event);
-
-      request.onsuccess = function(event) {
-        var cursor = event.target.result;
-        if (cursor) {
-          console.log("list events in db", cursor.value.event);
-          if (cursor.value.event === eventObj.event && cursor.value.dateTime === eventObj.dateTime) {
-            console.log("Event/dateTime already in database");
-            alert("An event with the same name and time already exists.  Please add a new event and/or a new time.");
-            return;
-            }
-          cursor.continue();
-        }
-        else {
-          console.log("cursor done: ", "Proceed to insert Event/dateTime into db");
-          // First, add event to DB
-          addEventToDB(eventObj);
-          // Then add event to DOM
-          addEventToDOM(eventObj);
-          // Lastly, add the new event and time to the Event and Date/Time tag selection
-          addEventToSelection(eventObj.event, eventObj.dateTime);
-          return;
-        }
-      };
-      request.onerror = function(event) {
-        console.error("Error adding New Event", event.target.error);
-        return;
-      };
-  } //end processEvent
-
-  function processGuest(guestForm) {
-    guestForm.preventDefault();
-    console.log("processing guests", guestForm);
-    var form = guestForm.target.form;
-
-    var selEvt, selDT, EID, fromEvents, fromDateTimes;
-
-    // get Elements
-    fromEvents = document.getElementById("fromEvents");
-    fromDateTimes = document.getElementById("fromDateTimes");
-
-    selEvt = fromEvents.options[fromEvents.selectedIndex].value;
-    selDT = fromDateTimes.options[fromDateTimes.selectedIndex].value;
-
-    // check that event and date coinside
-    chkEvtTime(selEvt, selDT, form);
-  } //end processGuest
-
-  // add event to the database
-  function addEventToDB(eventObj) {
-    console.log("adding event to db");
-    var evtStore, request;
-
-    evtStore = getEvtStore(dbStore[0], "readwrite");
-    request = evtStore.add(eventObj);
-    request.onsuccess = function(event) {
-      var value = event.target.result;
-      if (value) {
-        console.log("event added to db", event.target);
-        return;
-      }
-    };
-    request.onerror = function(event) {
-      console.error("problem inserting event into db");
-      return;
-    };
-  } //end addEventToDB
-
-  // add event created to the available selections
-  function addEventToSelection(eName, dateTime) {
-    console.log("adding to selection");
-    var fromEvents, fromDateTimes, optionE, optionDT;
-
-    fromEvents = document.getElementById("fromEvents");
-    fromDateTimes = document.getElementById("fromDateTimes");
-
-    optionE = document.createElement("option");
-    optionDT = document.createElement("option");
-
-    optionE.setAttribute("value", eName);
-    optionE.innerHTML = eName;
-    optionDT.setAttribute("value", dateTime);
-    optionDT.innerHTML = dateTime;
-
-    fromEvents.appendChild(optionE);
-    fromDateTimes.appendChild(optionDT);
-    return;
-  } //end addEventToSelection
-
-  function chkEvtTime(evt, dt, form) {
-    var evtStore, reqInx, request;
-    evtStore = getEvtStore(dbStore[0], "readonly");
-    reqInx = evtStore.index("event");
-    request = reqInx.openCursor(evt); // get events
-
-    request.onsuccess = function(event) {
-      var cursor = event.target.result;
-      if (cursor) {
-        console.log("checking event/time", cursor.value.event, cursor.value.dateTime);
-        if (cursor.value.dateTime === dt) {
-          console.log("event/time checkout");
-          return chkGuest(cursor.value, form);
-        }
-      cursor.continue();
-      }
-      else {
-        console.log("Event at that time does not exist");
-        alert("There is no event at that time.  Please create a new event or change your selection.");
-        return;
-      }
-    };
-    request.onerror = function(event) {
-      console.error("unable to get Event: db get error", event.target.error);
-      return;
-    };
-  } //end chkEvtTime
-
-  function chkGuest(evtInfo, form) {
-    console.log("event info: ", evtInfo);
-
-    // create guest object
-    var eventGuest = {
-      event: evtInfo.event,
-      dateTime: evtInfo.dateTime,
-      guest: {
-        EID: evtInfo.EID,
-        name: form.gName.value,
-        email: form.gEmail.value
-      }
-    };
-    console.log("guest object", eventGuest.guest);
-
-    // // first check if email is in the database
-    var evtStore, reqInx, request;
-    evtStore = getEvtStore(dbStore[1], "readonly");
-    reqInx = evtStore.index("email");
-    request = reqInx.openCursor(eventGuest.guest.email);
-
-    request.onsuccess = function(event) {
-      console.log("retrieving data");
-      var cursor = event.target.result;
-
-      if (cursor) {
-        console.log("checking against guest", cursor.value.EID, cursor.value.name, cursor.value.email);
-        if (cursor.value.name !== eventGuest.guest.name) {
-          console.log("username does not match email");
-          alert("Use a unique Name and Email for each guest");
-          return;
-        }
-        if (cursor.value.EID === eventGuest.guest.EID){
-          console.log("Guest already in the invite list.");
-          alert("Guest already in the invite list.");
-          return;
-        }
-        cursor.continue();
-      }
-      else {
-        console.log("adding event/user to db");
-        addGuestToDB(eventGuest);
-        return;
-      }
-    };
-    request.onerror = function(event) {
-      console.error("db cursor guest error", event.target.error);
-    };
-  } //end chkGuest
-
-  // add guest to DB
-  function addGuestToDB(eGuest) {
-    console.log("adding guest to db",eGuest);
-    var evtStore, request;
-
-    evtStore = getEvtStore(dbStore[1], "readwrite");
-    request = evtStore.add(eGuest.guest);
-    request.onsuccess = function(event) {
-      var value = event.target.result;
-      if (value) {
-        console.log("success on adding guest", event.target);
-        addGuestsToDOM(eGuest);
-        return;
-      }
-      console.error("guest not added to db", event.target);
-    };
-    request.onerror = function(event) {
-      console.error("guest insertion error:", event.target.error);
-    };
-  } //end addGuest
-
-  // uninvite guest
-  function uninviteGuest(domGuest) {
-    console.log("uninviting guest");
-
-    // gather data
-    var email, evtInfo, guest, evtStore, reqInx, request;
-    evtInfo = domGuest.target.parentNode.parentElement.id.split("_");
-    email = domGuest.target.previousSibling.textContent;
-    guest = {
+  // gather data
+  var email, evtInfo, eObj;
+  evtInfo = domGuest.target.parentNode.parentElement.id.split("_");
+  email = domGuest.target.previousSibling.textContent;
+  eObj = {
+    event: evtInfo[0],
+    dateTime: evtInfo[1],
+    guest: {
       EID: "",
-      event: evtInfo[0],
       email: email,
       li: domGuest.target.parentNode
-    };
+    }
+  };
 
-    // get event 
-    evtStore = getEvtStore(dbStore[0], "readonly");
-    reqInx = evtStore.index("event");
-    request = reqInx.openCursor(evtInfo[0]);
-    request.onsuccess = function(event) {
-      var cursor = event.target.result;
-      if (cursor) {
-        if (cursor.value.dateTime === evtInfo[1]) {
-          console.log("event/dateTime identified");
-          guest.EID = cursor.value.EID;
-          removeGuestFromDB(guest);
-          return;
-        }
-        cursor.continue();
-      }
-      else {
-        console.log("Event not associated with guest");
-        return;
-      }
-    };
-    request.onerror = function(event) {
-      console.error("ERROR accessing event from DB:", event.target.error);
+  // get event
+  getEvent(eObj, function(success) {
+    if (success) {
+      eObj.guest.EID = success.EID;
+      removeGuestFromDB(eObj.guest);
       return;
-    };
-  } //end uninviteGuest
+    }
+    else {
+      console.log("Event not associated with guest");
+      return;
+    }
+  });
+} //end uninviteGuest
 
-  // --------------- HELPER FUNCTIONS ---------------
-  // get Event Store
-  function getEvtStore(name, mode) {
-    var transaction = db.transaction(name, mode);
-    return transaction.objectStore(name);
-  }
-
-})();
+// --------------- HELPER FUNCTIONS ---------------
+// get Event Store
+function getEvtStore(name, mode) {
+  var transaction = db.transaction(name, mode);
+  return transaction.objectStore(name);
+}
