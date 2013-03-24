@@ -148,12 +148,12 @@ function processEvent(eForm) {
     var eObj, evtStore, reqInx, request;
 
     eObj = {
-      event: eForm.target.form.eName.value,
-      host: eForm.target.form.hostName.value,
-      location: eForm.target.form.where.value,
-      dateTime: eForm.target.form.when.value
+      eName: eForm.target.form.eName.value,
+      eHost: eForm.target.form.hostName.value,
+      eLoc: eForm.target.form.where.value,
+      eDateTime: eForm.target.form.when.value
     };
-    if (!(eObj.event && eObj.host && eObj.location && eObj.dateTime)){
+    if (!(eObj.eName && eObj.eHost && eObj.eLoc && eObj.eDateTime)){
       console.log("missing form information");
       alert("Please fill out the whole form");
       return;
@@ -172,7 +172,7 @@ function processEvent(eForm) {
             // Add event to DOM
             addEventToDOM(eObj);
             // Add the Event to selection option
-            addEventToSelection(eObj.event, eObj.dateTime);
+            addEventToSelection(eObj.eName, eObj.eDateTime);
             return;
           }
         });
